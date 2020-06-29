@@ -1,8 +1,11 @@
 require('dotenv').config();
 const fetch = require('node-fetch');
+const crypto = require('crypto');
+const fs = require('fs');
 
 const {
     TRANSFERWISE_API_TOKEN,
+    TRANSFERWISE_PROFILE_ID,
     TRANSFERWISE_BORDERLESS_ACCOUNT_ID,
     FREEAGENT_CLIENT_ID,
     FREEAGENT_CLIENT_SECRET,
@@ -23,11 +26,38 @@ go(`${dateString.substr(0, 4)}-${dateString.substr(4, 2)}-${dateString.substr(6,
     });
 
 async function go(start) {
-    const txns1 = await (await fetch(`https://api.transferwise.com/v1/borderless-accounts/${TRANSFERWISE_BORDERLESS_ACCOUNT_ID}/statement.json?currency=USD&intervalStart=${start}&intervalEnd=${new Date().toISOString()}`, {
-        headers: {
+
+    let signature;
+    let ott;
+    let res1;
+    for (let i = 0; i <= 1; i++) {
+        const headers = {
             "Authorization": `Bearer ${TRANSFERWISE_API_TOKEN}`,
-        },
-    })).json();
+        };
+
+        if (signature && ott) {
+            headers["X-Signature"] = signature;
+            headers["X-2FA-Approval"] = ott;
+        }
+
+        res1 = await fetch(`https://api.transferwise.com/v3/profiles/${TRANSFERWISE_PROFILE_ID}/borderless-accounts/${TRANSFERWISE_BORDERLESS_ACCOUNT_ID}/statement.json?currency=USD&intervalStart=${start}&intervalEnd=${new Date().toISOString()}`, {
+            headers,
+        });
+
+        if (res1.status === 403 && res1.headers.get("X-2FA-Approval-Result") === "REJECTED") {
+            const sign = crypto.createSign("RSA-SHA256");
+            sign.update(res1.headers.get("X-2FA-Approval"));
+            signature = sign.sign(fs.readFileSync("private.pem")).toString("base64");
+            ott = res1.headers.get("X-2FA-Approval");
+        }
+    }
+
+    if (!res1.ok) {
+        console.log("Failed getting statement from TransferWise");
+        return;
+    }
+
+    const txns1 = await res1.json();
 
     txns = txns1.transactions.map(txn => ({
         dated_on: txn.date.substr(0, 10),
@@ -44,7 +74,7 @@ async function go(start) {
         body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(FREEAGENT_REFRESH_TOKEN)}`,
     })).json()).access_token;
 
-    const response = await fetch(`https://api.freeagent.com/v2/bank_transactions/statement?bank_account=${FREEAGENT_BANK_ACCOUNT_ID}`, {
+    const res2 = await fetch(`https://api.freeagent.com/v2/bank_transactions/statement?bank_account=${FREEAGENT_BANK_ACCOUNT_ID}`, {
         headers: {
             "Authorization": `Bearer ${accessToken}`,
             "Content-Type": "application/json",
@@ -53,9 +83,9 @@ async function go(start) {
         body: JSON.stringify({ statement: txns }),
     });
 
-    if (response.status === 200) {
+    if (res2.ok) {
         console.log("Yep");
     } else {
-        console.log("Nope - ", await response.json());
+        console.log("Nope - ", await res2.json());
     }
 }
