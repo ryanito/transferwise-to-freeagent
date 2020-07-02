@@ -37,6 +37,7 @@ async function go() {
 
     const acc = await res0.json();
     let start = `${acc.bank_account.latest_activity_date}T00:00:00.000Z`;
+    let currency = acc.bank_account.currency;
 
     let signature;
     let ott;
@@ -51,7 +52,7 @@ async function go() {
             headers["X-2FA-Approval"] = ott;
         }
 
-        res1 = await fetch(`https://api.transferwise.com/v3/profiles/${TRANSFERWISE_PROFILE_ID}/borderless-accounts/${TRANSFERWISE_BORDERLESS_ACCOUNT_ID}/statement.json?currency=USD&intervalStart=${start}&intervalEnd=${new Date().toISOString()}`, {
+        res1 = await fetch(`https://api.transferwise.com/v3/profiles/${TRANSFERWISE_PROFILE_ID}/borderless-accounts/${TRANSFERWISE_BORDERLESS_ACCOUNT_ID}/statement.json?currency=${currency}&intervalStart=${start}&intervalEnd=${new Date().toISOString()}`, {
             headers,
         });
 
