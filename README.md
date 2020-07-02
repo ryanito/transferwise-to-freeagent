@@ -14,8 +14,6 @@ Keep `private.pem` in the root directory of the app, and upload `public.pem` to 
 
 # Usage
 
-`node index.js [start_date]`
+`node index.js`
 
-Where [start_date] is in YYYYMMDD format, e.g. 20190120 for January 20, 2019.
-
-It'll output a simple "Yep". Go to your FreeAgent account and the transactions will be in the bank account, ready to be explained/confirmed.
+It'll output a simple "Yep". Go to your FreeAgent account and the transactions since your last upload will be in the bank account, ready to be explained/confirmed.

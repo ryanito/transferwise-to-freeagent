@@ -13,19 +13,30 @@ const {
     FREEAGENT_BANK_ACCOUNT_ID,
 } = process.env;
 
-const dateString = process.argv[2];
+go().catch(error => {
+    console.error(error);
+});
 
-if (!dateString || !/^20\d{6}$/.test(dateString)) {
-  console.error("Need a start date e.g. 20190101");
-  process.exit(1);
-}
+async function go() {
 
-go(`${dateString.substr(0, 4)}-${dateString.substr(4, 2)}-${dateString.substr(6, 2)}T00:00:00.000Z`)
-    .catch(error => {
-        console.error(error);
+    const accessToken = (await (await fetch(`https://api.freeagent.com/v2/token_endpoint`, {
+        headers: {
+            "Authorization": `Basic ${Buffer.from(`${FREEAGENT_CLIENT_ID}:${FREEAGENT_CLIENT_SECRET}`).toString("base64")}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        method: "POST",
+        body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(FREEAGENT_REFRESH_TOKEN)}`,
+    })).json()).access_token;
+
+    const res0 = await fetch(`https://api.freeagent.com/v2/bank_accounts/${FREEAGENT_BANK_ACCOUNT_ID}`, {
+        headers: {
+            "Authorization": `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+        }
     });
 
-async function go(start) {
+    const acc = await res0.json();
+    let start = `${acc.bank_account.latest_activity_date}T00:00:00.000Z`;
 
     let signature;
     let ott;
@@ -59,20 +70,11 @@ async function go(start) {
 
     const txns1 = await res1.json();
 
-    txns = txns1.transactions.map(txn => ({
+    let txns = txns1.transactions.map(txn => ({
         dated_on: txn.date.substr(0, 10),
         description: txn.details.type === "DEPOSIT" ? `${txn.details.paymentReference} from ${txn.details.senderName}` : txn.details.type === "TRANSFER" ? `To ${txn.details.recipient.name} ref ${txn.details.paymentReference}` : `${txn.details.description}`,
         amount: txn.amount.value,
     }));
-
-    const accessToken = (await (await fetch(`https://api.freeagent.com/v2/token_endpoint`, {
-        headers: {
-            "Authorization": `Basic ${Buffer.from(`${FREEAGENT_CLIENT_ID}:${FREEAGENT_CLIENT_SECRET}`).toString("base64")}`,
-            "Content-Type": "application/x-www-form-urlencoded",
-        },
-        method: "POST",
-        body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(FREEAGENT_REFRESH_TOKEN)}`,
-    })).json()).access_token;
 
     const res2 = await fetch(`https://api.freeagent.com/v2/bank_transactions/statement?bank_account=${FREEAGENT_BANK_ACCOUNT_ID}`, {
         headers: {
