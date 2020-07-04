@@ -13,11 +13,13 @@ const {
     FREEAGENT_BANK_ACCOUNT_ID,
 } = process.env;
 
-go().catch(error => {
-    console.error(error);
+FREEAGENT_BANK_ACCOUNT_ID.split(",").forEach(function (bankAccount) {
+    go(bankAccount).catch(error => {
+        console.error(error);
+    });
 });
 
-async function go() {
+async function go(bankAccount) {
 
     const accessToken = (await (await fetch(`https://api.freeagent.com/v2/token_endpoint`, {
         headers: {
@@ -28,7 +30,7 @@ async function go() {
         body: `grant_type=refresh_token&refresh_token=${encodeURIComponent(FREEAGENT_REFRESH_TOKEN)}`,
     })).json()).access_token;
 
-    const res0 = await fetch(`https://api.freeagent.com/v2/bank_accounts/${FREEAGENT_BANK_ACCOUNT_ID}`, {
+    const res0 = await fetch(`https://api.freeagent.com/v2/bank_accounts/${bankAccount}`, {
         headers: {
             "Authorization": `Bearer ${accessToken}`,
             "Content-Type": "application/json",
@@ -77,7 +79,7 @@ async function go() {
         amount: txn.amount.value,
     }));
 
-    const res2 = await fetch(`https://api.freeagent.com/v2/bank_transactions/statement?bank_account=${FREEAGENT_BANK_ACCOUNT_ID}`, {
+    const res2 = await fetch(`https://api.freeagent.com/v2/bank_transactions/statement?bank_account=${bankAccount}`, {
         headers: {
             "Authorization": `Bearer ${accessToken}`,
             "Content-Type": "application/json",
