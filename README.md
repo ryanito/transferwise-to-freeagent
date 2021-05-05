@@ -1,3 +1,5 @@
+> FreeAgent now links directly with TransferWise! This package still works but there's no reason to use it.
+
 # Installation
 
 1. Make sure you have `node` and `npm` installed
